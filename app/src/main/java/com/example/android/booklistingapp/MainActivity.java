@@ -48,48 +48,41 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
         // so the list can be populated in the user interface
         bookListView.setAdapter(mAdapter);
 
-        // Get a reference to the ConnectivityManager to check state of network connectivity
-        ConnectivityManager cm =
-                (ConnectivityManager) this.getSystemService(Context.CONNECTIVITY_SERVICE);
-
-        // Get details on the currently active default data network
-        final NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
-
         // hide loading indicator so that it is not display on launch
         final View loadingIndicator = findViewById(R.id.loading_indicator);
         loadingIndicator.setVisibility(View.GONE);
 
         mEmptyStateTextView = (TextView) findViewById(R.id.empty_view);
 
-        // If there is a network connection, fetch data
-        if (activeNetwork != null && activeNetwork.isConnectedOrConnecting()) {
+        // Get a reference to the LoaderManager, in order to interact with loaders.
+        LoaderManager loaderManager = getLoaderManager();
 
-            // Get a reference to the LoaderManager, in order to interact with loaders.
-            LoaderManager loaderManager = getLoaderManager();
+        // Initialize the loader.
+        loaderManager.initLoader(BOOK_LOADER_ID, null, MainActivity.this);
 
-            // Initialize the loader.
-            loaderManager.initLoader(BOOK_LOADER_ID, null, MainActivity.this);
-
-            bookListView.setEmptyView(mEmptyStateTextView);
-
-        } else {
-            // Otherwise, display error
-            // First, hide loading indicator so error message will be visible
-            loadingIndicator.setVisibility(View.GONE);
-
-            // Set empty state text to display "No internet connection."
-            mEmptyStateTextView.setText(R.string.no_internet_connection);
-        }
+        bookListView.setEmptyView(mEmptyStateTextView);
 
         searchButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                // display loading indicator during the search
-                loadingIndicator.setVisibility(View.VISIBLE);
-                // get the user search and form the request
-                formRequestUrl(getUserSearchText());
-                // restart loader
-                getLoaderManager().restartLoader(BOOK_LOADER_ID, null, MainActivity.this);
+                if (isConnected()) {
+                    // display loading indicator during the search
+                    loadingIndicator.setVisibility(View.VISIBLE);
+                    // get the user search and form the request
+                    formRequestUrl(getUserSearchText());
+                    // restart loader
+                    getLoaderManager().restartLoader(BOOK_LOADER_ID, null, MainActivity.this);
+                } else {
+                    // Otherwise, display error
+                    // First, hide loading indicator so error message will be visible
+                    loadingIndicator.setVisibility(View.GONE);
+
+                    // Clear the adapter of previous book data
+                    mAdapter.clear();
+
+                    // Set empty state text to display "No internet connection."
+                    mEmptyStateTextView.setText(R.string.no_internet_connection);
+                }
             }
         });
     }
@@ -141,4 +134,20 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
         return google_books_request_url = "https://www.googleapis.com/books/v1/volumes?q=" + search
                 + "&maxResults=40";
     }
+
+    private boolean isConnected() {
+        // Get a reference to the ConnectivityManager to check state of network connectivity
+        ConnectivityManager cm =
+                (ConnectivityManager) this.getSystemService(Context.CONNECTIVITY_SERVICE);
+
+        // Get details on the currently active default data network
+        final NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
+
+        if (activeNetwork != null && activeNetwork.isConnectedOrConnecting()) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
 }

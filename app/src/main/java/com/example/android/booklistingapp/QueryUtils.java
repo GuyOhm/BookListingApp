@@ -29,6 +29,11 @@ public class QueryUtils {
      */
     public static final String LOG_TAG = QueryUtils.class.getSimpleName();
 
+    // declare constants for makeHttpRequest method
+    private static final int READ_TIME_OUT = 10000; //milliseconds
+    private static final int CONNECT_TIME_OUT = 15000; //milliseconds
+    private static final int HTTP_200_OK = 200;
+
     /**
      * Create a private constructor because no one should ever create a {@link QueryUtils} object.
      * This class is only meant to hold static variables and methods, which can be accessed
@@ -53,10 +58,10 @@ public class QueryUtils {
             Log.e(LOG_TAG, "Problem making the HTTP request.", e);
         }
 
-        // Extract relevant fields from the JSON response and create a list of {@link Earthquake}s
+        // Extract relevant fields from the JSON response and create a list of {@link Book}s
         List<Book> books = extractItemFromJson(jsonResponse);
 
-        // Return the list of {@link Earthquake}s
+        // Return the list of {@link Book}s
         return books;
     }
 
@@ -88,21 +93,21 @@ public class QueryUtils {
         InputStream inputStream = null;
         try {
             urlConnection = (HttpURLConnection) url.openConnection();
-            urlConnection.setReadTimeout(10000 /* milliseconds */);
-            urlConnection.setConnectTimeout(15000 /* milliseconds */);
+            urlConnection.setReadTimeout(READ_TIME_OUT);
+            urlConnection.setConnectTimeout(CONNECT_TIME_OUT);
             urlConnection.setRequestMethod("GET");
             urlConnection.connect();
 
             // If the request was successful (response code 200),
             // then read the input stream and parse the response.
-            if (urlConnection.getResponseCode() == 200) {
+            if (urlConnection.getResponseCode() == HTTP_200_OK) {
                 inputStream = urlConnection.getInputStream();
                 jsonResponse = readFromStream(inputStream);
             } else {
                 Log.e(LOG_TAG, "Error response code: " + urlConnection.getResponseCode());
             }
         } catch (IOException e) {
-            Log.e(LOG_TAG, "Problem retrieving the earthquake JSON results.", e);
+            Log.e(LOG_TAG, "Problem retrieving the book JSON results.", e);
         } finally {
             if (urlConnection != null) {
                 urlConnection.disconnect();
@@ -130,9 +135,7 @@ public class QueryUtils {
         // Create an empty ArrayList that we can start adding books to
         List<Book> books = new ArrayList<>();
 
-        // Try to parse the JSON response string. If there's a problem with the way the JSON
-        // is formatted, a JSONException exception object will be thrown.
-        // Catch the exception so the app doesn't crash, and print the error message to the logs.
+        // Try to parse the JSON response string.
         try {
 
             // Create a JSONObject from the JSON response string
@@ -155,32 +158,39 @@ public class QueryUtils {
                 // Extract the value for the key called "title"
                 String title = volumeInfo.getString("title");
 
-                // Extract JSONArray associated with the key "authors"
-                JSONArray authorsArray = volumeInfo.getJSONArray("authors");
+                String authors = null;
 
-                // declare a string builder to store authors names
-                StringBuilder authorsName = new StringBuilder();
+                // try to parse JSONArray with key "authors"
+                try{
+                    // Extract JSONArray associated with the key "authors"
+                    JSONArray authorsArray = volumeInfo.getJSONArray("authors");
 
-                // for each author in authorsArray, extract it and add it to a string builder
-                for (int j = 0; j < authorsArray.length(); j++) {
-                    authorsName.append(authorsArray.getString(j));
+                    // declare a string builder to store authors names
+                    StringBuilder authorsName = new StringBuilder();
+
+                    // for each author in authorsArray, extract it and add it to a string builder
+                    for (int j = 0; j < authorsArray.length(); j++) {
+                        authorsName.append(authorsArray.getString(j));
+                    }
+
+                    // store authors names into a string
+                    authors = authorsName.toString();
+
+                } catch (JSONException e) {
+                    authors = "";
+                    Log.e(LOG_TAG, "JSONArray with key \"authors\" is empty. " + e );
+
+                } finally {
+                    // Create a new {@link Book} object from the JSON response.
+                    Book book = new Book(title, authors);
+
+                    // Add the new {@link Book} to the list of books.
+                    books.add(book);
                 }
-
-                // store authors names into a string
-                String authors = authorsName.toString();
-
-                // Create a new {@link Book} object from the JSON response.
-                Book book = new Book(title, authors);
-
-                // Add the new {@link Book} to the list of books.
-                books.add(book);
             }
 
         } catch (JSONException e) {
-            // If an error is thrown when executing any of the above statements in the "try" block,
-            // catch the exception here, so the app doesn't crash. Print a log message
-            // with the message from the exception.
-            Log.e("QueryUtils", "Problem parsing the earthquake JSON results", e);
+            Log.e(LOG_TAG, "Problem parsing the books JSON results", e);
         }
 
         // Return the list of books
